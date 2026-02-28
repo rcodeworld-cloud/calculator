@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Android calculator + hideable history</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #1e1f22;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Roboto', 'Segoe UI', system-ui, sans-serif;
+            padding: 12px;
+        }
+
+        /* main card */
+        .android-calc {
+            width: 100%;
+            max-width: 500px;
+            background: #1e1e1e;
+            border-radius: 32px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px -8px rgba(0,0,0,0.9), 0 8px 20px rgba(0,0,0,0.7);
+            border: 1px solid #3c3c3e;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* display container */
+        .display-container {
+            background: #0f0f0f;
+            padding: 20px 24px 12px 24px;
+            border-bottom: 1px solid #323234;
+        }
+
+        .tiny-history {
+            color: #9aa0a6;
+            font-size: 18px;
+            font-weight: 400;
+            min-height: 28px;
+            text-align: right;
+            word-wrap: break-word;
+            font-family: 'Google Sans', 'Roboto', monospace;
+            letter-spacing: 0.5px;
+        }
+
+        .main-result {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #e9edf0;
+            font-size: 56px;
+            font-weight: 400;
+            text-align: right;
+            font-family: 'Google Sans', 'Roboto Condensed', monospace;
+            margin-top: 4px;
+            padding: 0 2px;
+            line-height: 1.2;
+            caret-color: #8ab4f8;
+            letter-spacing: -0.5px;
+        }
+
+        .main-result::placeholder {
+            color: #3c4043;
+        }
+
+        /* HISTORY SECTION (collapsible) */
+        .history-wrapper {
+            background: #1a1a1c;
+            border-bottom: 1px solid #2c2c2e;
+            transition: all 0.2s ease;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px 8px 20px;
+        }
+
+        .history-title {
+            color: #8ab4f8;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toggle-history-btn {
+            background: #2d2f33;
+            border: none;
+            color: #9aa0a6;
+            font-size: 22px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            line-height: 1;
+        }
+
+        .toggle-history-btn:hover {
+            background: #3c3f44;
+            color: #e8eaed;
+        }
+
+        .toggle-history-btn:active {
+            transform: scale(0.92);
+        }
+
+        .history-container {
+            padding: 0 20px 12px 20px;
+            max-height: 150px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #5f6368 #2a2a2c;
+            transition: max-height 0.25s ease, padding 0.2s ease;
+        }
+
+        .history-container.collapsed {
+            max-height: 0;
+            padding: 0 20px;
+            overflow: hidden;
+            border-bottom: none;
+        }
+
+        .history-container::-webkit-scrollbar {
+            width: 5px;
+        }
+        .history-container::-webkit-scrollbar-track {
+            background: #2a2a2c;
+        }
+        .history-container::-webkit-scrollbar-thumb {
+            background: #5f6368;
+            border-radius: 10px;
+        }
+
+        .history-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .history-item {
+            color: #b0b6bc;
+            font-size: 16px;
+            font-family: 'Google Sans', 'Roboto Mono', monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed #323234;
+            padding-bottom: 4px;
+        }
+
+        .history-expression {
+            color: #d2d6da;
+            font-weight: 400;
+        }
+
+        .history-result {
+            color: #f5e56b;
+            font-weight: 500;
+            padding-left: 16px;
+        }
+
+        .clear-history-btn {
+            background: transparent;
+            border: 1px solid #4a5b6e;
+            color: #9aa0a6;
+            border-radius: 24px;
+            font-size: 12px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.1s;
+        }
+
+        .clear-history-btn:hover {
+            background: #2d2f33;
+            color: #e8eaed;
+        }
+
+        /* button panel (unchanged) */
+        .button-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            padding: 18px 16px 18px 16px;
+            background: #1e1e1e;
+        }
+
+        .btn {
+            border: none;
+            background: #2b2b2d;
+            border-radius: 60px;
+            aspect-ratio: 1 / 1;
+            font-size: 28px;
+            font-weight: 450;
+            color: #e8eaed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            padding: 0 8px;
+            line-height: 1;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .btn-zero {
+            grid-column: span 2;
+            aspect-ratio: auto;
+            padding: 16px 0;
+            justify-content: flex-start;
+            padding-left: 32px;
+        }
+
+        .btn-operator {
+            background: #3c3f44;
+            color: #8ab4f8;
+            font-size: 32px;
+        }
+
+        .btn-function {
+            background: #3c3f44;
+            color: #9aa0a6;
+            font-size: 26px;
+        }
+
+        .btn-equals {
+            background: #4a6fa5;
+            color: white;
+            font-size: 36px;
+        }
+
+        .btn:active {
+            filter: brightness(1.6);
+            transform: scale(0.96);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+        }
+
+        .btn:focus-visible {
+            outline: 3px solid #8ab4f8;
+            outline-offset: 2px;
+        }
+
+        .brand {
+            color: #5f6368;
+            text-align: center;
+            font-size: 12px;
+            padding: 0 0 14px 0;
+            background: #1e1e1e;
+            letter-spacing: 0.5px;
+        }
+
+        .brand span {
+            color: #8ab4f8;
+        }
+
+        @media (max-width: 400px) {
+            .btn { font-size: 24px; }
+            .main-result { font-size: 48px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="android-calc">
+        <!-- main display area -->
+        <div class="display-container">
+            <div class="tiny-history" id="previewLine"></div>
+            <input type="text" id="androidScreen" class="main-result" readonly value="0" placeholder="0">
+        </div>
+
+        <!-- HISTORY SECTION with hide/show toggle -->
+        <div class="history-wrapper">
+            <div class="history-header">
+                <div class="history-title">
+                    <span>📋 history</span>
+                    <button class="clear-history-btn" id="clearHistoryBtn" aria-label="clear history">clear</button>
+                </div>
+                <button class="toggle-history-btn" id="toggleHistoryBtn" aria-label="toggle history visibility">▼</button>
+            </div>
+            <div class="history-container" id="historyContainer">
+                <ul class="history-list" id="historyList">
+                    <!-- history items will appear here dynamically -->
+                    <li style="color: #5f6368; list-style: none; font-style: italic; text-align: center; padding: 8px;" id="historyPlaceholder">No calculations yet</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- buttons – Android layout -->
+        <div class="button-panel">
+            <button class="btn btn-function" id="clearBtn">C</button>
+            <button class="btn btn-function" id="backspaceBtn">⌫</button>
+            <button class="btn btn-function" id="percentBtn">%</button>
+            <button class="btn btn-operator" id="divideBtn">÷</button>
+
+            <button class="btn" id="sevenBtn">7</button>
+            <button class="btn" id="eightBtn">8</button>
+            <button class="btn" id="nineBtn">9</button>
+            <button class="btn btn-operator" id="multiplyBtn">×</button>
+
+            <button class="btn" id="fourBtn">4</button>
+            <button class="btn" id="fiveBtn">5</button>
+            <button class="btn" id="sixBtn">6</button>
+            <button class="btn btn-operator" id="subtractBtn">−</button>
+
+            <button class="btn" id="oneBtn">1</button>
+            <button class="btn" id="twoBtn">2</button>
+            <button class="btn" id="threeBtn">3</button>
+            <button class="btn btn-operator" id="addBtn">+</button>
+
+            <button class="btn btn-zero" id="zeroBtn">0</button>
+            <button class="btn" id="decimalBtn">.</button>
+            <button class="btn btn-equals" id="equalsBtn">=</button>
+        </div>
+        <div class="brand">
+            <span>Android 14</span> · toggle history
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            "use strict";
+
+            // ---------- DOM elements ----------
+            const screen = document.getElementById('androidScreen');
+            const previewEl = document.getElementById('previewLine');
+            const historyList = document.getElementById('historyList');
+            const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+            const toggleHistoryBtn = document.getElementById('toggleHistoryBtn');
+            const historyContainer = document.getElementById('historyContainer');
+
+            // ---------- state ----------
+            let currentInput = '0';
+            let previousOperand = null;
+            let activeOperator = null;
+            let resetOnNextDigit = false;
+            let lastEqualsWasUsed = false;
+
+            // history array
+            let historyLog = [];
+
+            // toggle state (start with visible)
+            let historyVisible = true;
+
+            // helper: format numbers
+            function formatDisplay(value) {
+                if (value === null || value === undefined) return '0';
+                let num = (typeof value === 'string') ? parseFloat(value) : value;
+                if (isNaN(num)) return '0';
+                let str = num.toString();
+                if (str.length > 14) {
+                    if (str.includes('e')) return str.slice(0, 14);
+                    return num.toExponential(8).slice(0, 14);
+                }
+                return str;
+            }
+
+            function updateScreen(value) {
+                const formatted = formatDisplay(value);
+                screen.value = formatted;
+                currentInput = formatted;
+            }
+
+            function updatePreview(text) {
+                previewEl.textContent = text || '';
+            }
+
+            // ---------- render history list ----------
+            function renderHistory() {
+                historyList.innerHTML = '';  
+                if (historyLog.length === 0) {
+                    const placeholder = document.createElement('li');
+                    placeholder.style.color = '#5f6368';
+                    placeholder.style.listStyle = 'none';
+                    placeholder.style.fontStyle = 'italic';
+                    placeholder.style.textAlign = 'center';
+                    placeholder.style.padding = '8px';
+                    placeholder.textContent = 'No calculations yet';
+                    historyList.appendChild(placeholder);
+                    return;
+                }
+
+                // show newest at top
+                const reversed = [...historyLog].reverse();
+                for (let entry of reversed) {
+                    const li = document.createElement('li');
+                    li.className = 'history-item';
+
+                    const exprSpan = document.createElement('span');
+                    exprSpan.className = 'history-expression';
+                    exprSpan.textContent = entry.expression;
+
+                    const resSpan = document.createElement('span');
+                    resSpan.className = 'history-result';
+                    resSpan.textContent = '= ' + entry.result;
+
+                    li.appendChild(exprSpan);
+                    li.appendChild(resSpan);
+                    historyList.appendChild(li);
+                }
+            }
+
+            // add calculation to history
+            function addToHistory(expression, result) {
+                const lastEntry = historyLog[historyLog.length - 1];
+                if (lastEntry && lastEntry.expression === expression && lastEntry.result === result) {
+                    return;
+                }
+                historyLog.push({ expression, result: formatDisplay(result) });
+                if (historyLog.length > 30) historyLog.shift();
+                renderHistory();
+            }
+
+            // clear history
+            function clearHistory() {
+                historyLog = [];
+                renderHistory();
+            }
+
+            // ---------- toggle history visibility ----------
+            function toggleHistory() {
+                historyVisible = !historyVisible;
+                if (historyVisible) {
+                    historyContainer.classList.remove('collapsed');
+                    toggleHistoryBtn.textContent = '▼';
+                } else {
+                    historyContainer.classList.add('collapsed');
+                    toggleHistoryBtn.textContent = '▶';
+                }
+            }
+
+            // ---------- all clear ----------
+            function allClear() {
+                currentInput = '0';
+                previousOperand = null;
+                activeOperator = null;
+                resetOnNextDigit = false;
+                lastEqualsWasUsed = false;
+                updatePreview('');
+                updateScreen('0');
+            }
+
+            // ---------- digit / decimal ----------
+            function inputDigit(digit) {
+                if (resetOnNextDigit) {
+                    currentInput = (digit === '.') ? '0.' : digit;
+                    resetOnNextDigit = false;
+                    lastEqualsWasUsed = false;
+                } else {
+                    if (digit === '.') {
+                        if (currentInput.includes('.')) return;
+                        if (currentInput === '') currentInput = '0';
+                        currentInput += '.';
+                    } else {
+                        if (currentInput === '0' && digit !== '.') {
+                            currentInput = digit;
+                        } else if (currentInput === '-0') {
+                            currentInput = '-' + digit;
+                        } else {
+                            currentInput += digit;
+                        }
+                    }
+                }
+                if (currentInput.length > 15) currentInput = currentInput.slice(0, 15);
+                updateScreen(currentInput);
+
+                if (activeOperator && previousOperand !== null && !resetOnNextDigit) {
+                    updatePreview(`${formatDisplay(previousOperand)} ${activeOperator} ${currentInput}`);
+                } else if (activeOperator && previousOperand !== null) {
+                    updatePreview(`${formatDisplay(previousOperand)} ${activeOperator}`);
+                } else {
+                    if (!activeOperator) updatePreview('');
+                }
+            }
+
+            // ---------- operator handler ----------
+            function handleOperator(op) {
+                const currentVal = parseFloat(currentInput);
+                if (isNaN(currentVal)) { allClear(); return; }
+
+                if (activeOperator !== null && !resetOnNextDigit && previousOperand !== null) {
+                    compute(activeOperator, previousOperand, currentVal, false);
+                } else if (previousOperand === null) {
+                    previousOperand = currentVal;
+                }
+
+                activeOperator = op;
+                resetOnNextDigit = true;
+                lastEqualsWasUsed = false;
+
+                if (previousOperand !== null) {
+                    updatePreview(`${formatDisplay(previousOperand)} ${op}`);
+                } else {
+                    updatePreview(`0 ${op}`);
+                }
+            }
+
+            // ---------- compute ----------
+            function compute(operator, left, right, pushToHistory = true) {
+                if (left === null || isNaN(left) || isNaN(right)) return NaN;
+
+                let result;
+                const a = left;
+                const b = right;
+                switch (operator) {
+                    case '+': result = a + b; break;
+                    case '−': result = a - b; break;
+                    case '×': result = a * b; break;
+                    case '÷':
+                        if (b === 0) {
+                            alert('Cannot divide by zero');
+                            allClear();
+                            return NaN;
+                        }
+                        result = a / b;
+                        break;
+                    default: return NaN;
+                }
+
+                result = Math.round((result + Number.EPSILON) * 1e12) / 1e12;
+                const formatted = formatDisplay(result);
+                updateScreen(formatted);
+                previousOperand = result;
+                currentInput = formatted;
+
+                if (pushToHistory) {
+                    const expr = `${formatDisplay(left)} ${operator} ${formatDisplay(right)}`;
+                    addToHistory(expr, result);
+                }
+                return result;
+            }
+
+            // ---------- equals ----------
+            function handleEquals() {
+                if (activeOperator === null) return;
+                const rightVal = parseFloat(currentInput);
+                if (isNaN(rightVal)) { allClear(); return; }
+                const left = previousOperand;
+                const op = activeOperator;
+                if (left === null) return;
+
+                const computed = compute(op, left, rightVal, true);
+                if (!isNaN(computed)) {
+                    activeOperator = null;
+                    resetOnNextDigit = true;
+                    lastEqualsWasUsed = true;
+                    updatePreview(`${formatDisplay(left)} ${op} ${formatDisplay(rightVal)} =`);
+                } else {
+                    allClear();
+                }
+            }
+
+            // ---------- percent ----------
+            function handlePercent() {
+                if (activeOperator && previousOperand !== null && !resetOnNextDigit) {
+                    const base = previousOperand;
+                    const curr = parseFloat(currentInput);
+                    if (isNaN(curr)) return;
+                    const percentValue = (base * curr) / 100;
+                    currentInput = percentValue.toString();
+                    updateScreen(currentInput);
+                } else {
+                    let val = parseFloat(currentInput);
+                    if (isNaN(val)) return;
+                    val = val / 100;
+                    currentInput = formatDisplay(val);
+                    updateScreen(currentInput);
+                }
+            }
+
+            // ---------- backspace ----------
+            function backspace() {
+                if (resetOnNextDigit) {
+                    if (previousOperand !== null) {
+                        currentInput = formatDisplay(previousOperand);
+                        updateScreen(currentInput);
+                        resetOnNextDigit = false;
+                    } else {
+                        currentInput = '0';
+                        updateScreen('0');
+                        resetOnNextDigit = false;
+                    }
+                    return;
+                }
+                if (currentInput.length > 1) {
+                    currentInput = currentInput.slice(0, -1);
+                } else {
+                    currentInput = '0';
+                }
+                updateScreen(currentInput);
+            }
+
+            // ---------- keyboard support ----------
+            function handleKeyDown(e) {
+                const key = e.key;
+                const validKeys = ['0','1','2','3','4','5','6','7','8','9','.', '+', '-', '*', '/', '%', 'Backspace', 'Delete', 'Escape', 'Enter', '='];
+                if (validKeys.includes(key) || key === 'Delete') e.preventDefault();
+
+                if (key >= '0' && key <= '9') inputDigit(key);
+                if (key === '.') inputDigit('.');
+                if (key === '+') handleOperator('+');
+                if (key === '-') handleOperator('−');
+                if (key === '*') handleOperator('×');
+                if (key === '/') handleOperator('÷');
+                if (key === '%') handlePercent();
+                if (key === 'Backspace') backspace();
+                if (key === 'Delete' || key === 'Escape') allClear();
+                if (key === 'Enter' || key === '=') handleEquals();
+            }
+
+            // ---------- wire buttons ----------
+            document.addEventListener('DOMContentLoaded', () => {
+                // numbers & dot
+                document.querySelectorAll('.btn:not(.btn-operator):not(.btn-function):not(.btn-equals)').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const val = e.target.innerText;
+                        if (val === '.' || !isNaN(parseInt(val)) || val === '0') inputDigit(val);
+                    });
+                });
+                document.getElementById('zeroBtn').addEventListener('click', () => inputDigit('0'));
+                document.getElementById('decimalBtn').addEventListener('click', () => inputDigit('.'));
+
+                document.getElementById('addBtn').addEventListener('click', () => handleOperator('+'));
+                document.getElementById('subtractBtn').addEventListener('click', () => handleOperator('−'));
+                document.getElementById('multiplyBtn').addEventListener('click', () => handleOperator('×'));
+                document.getElementById('divideBtn').addEventListener('click', () => handleOperator('÷'));
+
+                document.getElementById('percentBtn').addEventListener('click', handlePercent);
+                document.getElementById('clearBtn').addEventListener('click', allClear);
+                document.getElementById('backspaceBtn').addEventListener('click', backspace);
+                document.getElementById('equalsBtn').addEventListener('click', handleEquals);
+
+                // history controls
+                clearHistoryBtn.addEventListener('click', clearHistory);
+                toggleHistoryBtn.addEventListener('click', toggleHistory);
+
+                window.addEventListener('keydown', handleKeyDown);
+
+                allClear();
+                renderHistory();  // show placeholder
+            });
+        })();
+    </script>
+</body>
+</html>
